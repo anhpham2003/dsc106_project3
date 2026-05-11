@@ -1,12 +1,10 @@
 // list of months to scrub through
 const months = [];
-for (let y = 2020; y <= 2025; y++) {
+for (let y = 2000; y <= 2025; y++) {
   for (let m = 1; m <= 12; m++) {
-    if (y === 2020 && m < 3) continue;
     months.push(`${y}-${String(m).padStart(2, '0')}`);
   }
 }
-
 
 // DOM elements
 const slider = d3.select("#slider");
