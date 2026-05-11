@@ -141,9 +141,7 @@ canvas.addEventListener("mousemove", (e) => {
   }
 });
 
-// =====================================================
-// 10. Update function
-// =====================================================
+// Update function
 async function update() {
   const ym = months[slider.node().value];
   title.text(`NDVI — ${ym}`);
@@ -157,7 +155,5 @@ async function update() {
 
 slider.on("input", update);
 
-// =====================================================
-// 11. Initialize
-// =====================================================
+// Initialize
 update();
