@@ -2,6 +2,16 @@
 const months = [];
 for (let y = 2000; y <= 2025; y++) {
   for (let m = 1; m <= 12; m++) {
+    if (y == 2000) {
+      if (m == 1 || m == 2) {
+        continue;
+      }
+    }
+    if (y == 2025) {
+      if (m == 4) {
+        continue;
+      }
+    }
     months.push(`${y}-${String(m).padStart(2, '0')}`);
   }
 }
@@ -10,13 +20,13 @@ for (let y = 2000; y <= 2025; y++) {
 const slider = d3.select("#slider");
 slider.attr("max", months.length - 1);
 
-const title  = d3.select("#title");
-const hover  = d3.select("#hover");
+const title = d3.select("#title");
+const hover = d3.select("#hover");
 
 const canvas = d3.select("#heatmap").node();
-const ctx    = canvas.getContext("2d");
+const ctx = canvas.getContext("2d");
 
-const CANVAS_WIDTH  = canvas.width;
+const CANVAS_WIDTH = canvas.width;
 const CANVAS_HEIGHT = canvas.height;
 
 // ── Zoom state ────────────────────────────────────────────────────────────────
@@ -59,7 +69,7 @@ async function loadNDVI(ym) {
 // Offscreen canvas holds the raw pixel grid at native resolution.
 // We composite it onto the main canvas with the zoom transform applied.
 const offscreen = document.createElement("canvas");
-offscreen.width  = CANVAS_WIDTH;
+offscreen.width = CANVAS_WIDTH;
 offscreen.height = CANVAS_HEIGHT;
 const offCtx = offscreen.getContext("2d");
 
@@ -108,20 +118,50 @@ function redraw() {
 // ── Regions ───────────────────────────────────────────────────────────────────
 
 const REGIONS = {
-  "Amazon":          { lon_min: -75,  lon_max: -45, lat_min: -20, lat_max:  5 },
-  "Western US":      { lon_min: -125, lon_max: -105, lat_min:  30, lat_max: 50 },
-  "Midwest":         { lon_min: -105, lon_max:  -80, lat_min:  36, lat_max: 50 },
-  "Central America": { lon_min:  -95, lon_max:  -75, lat_min:   7, lat_max: 22 },
-  "Andes":           { lon_min:  -80, lon_max:  -65, lat_min: -45, lat_max: 10 },
-  "Canada/Arctic":   { lon_min: -140, lon_max:  -60, lat_min:  55, lat_max: 75 },
+  "Amazon": { lon_min: -75, lon_max: -45, lat_min: -20, lat_max: 5 },
+  "Western US": { lon_min: -125, lon_max: -105, lat_min: 30, lat_max: 50 },
+  "Midwest": { lon_min: -105, lon_max: -80, lat_min: 36, lat_max: 50 },
+  "Central America": { lon_min: -95, lon_max: -75, lat_min: 7, lat_max: 22 },
+  "Andes": { lon_min: -80, lon_max: -65, lat_min: -45, lat_max: 10 },
+  "Canada/Arctic": { lon_min: -140, lon_max: -60, lat_min: 55, lat_max: 75 },
 };
 
 function drawRegions() {
   // Scale line width so it stays visually consistent regardless of zoom
-  ctx.lineWidth   = 2 / currentTransform.k;
+  ctx.lineWidth = 2 / currentTransform.k;
   ctx.strokeStyle = "rgba(255,255,255,0.8)";
-  ctx.font        = `${12 / currentTransform.k}px Arial`;
-  ctx.fillStyle   = "rgba(255,255,255,0.9)";
+  ctx.font = `${12 / currentTransform.k}px Arial`;
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+
+  // Draw Midwest popup if active
+  if (window.midwestPopup) {
+    const { x, y } = window.midwestPopup;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 1 / currentTransform.k;
+
+    const text = "The Midwest has the largest vegetation fluctuation on average throughout the year!";
+    const padding = 6 / currentTransform.k;
+    const fontSize = 14 / currentTransform.k;
+
+    ctx.font = `${fontSize}px Arial`;
+
+    const textWidth = ctx.measureText(text).width;
+    const boxWidth = textWidth + padding * 2;
+    const boxHeight = fontSize + padding * 2;
+
+    // Draw box
+    ctx.fillRect(x, y, boxWidth, boxHeight);
+    ctx.strokeRect(x, y, boxWidth, boxHeight);
+
+    // Draw text
+    ctx.fillStyle = "black";
+    ctx.fillText(text, x + padding, y + fontSize + padding / 2);
+
+    ctx.restore();
+  }
 
   for (const [name, r] of Object.entries(REGIONS)) {
     const x1 = lonToX(r.lon_min);
@@ -144,12 +184,13 @@ function regionAt(dataX, dataY) {
     }
   }
   return null;
+
 }
 
 // ── Click-to-zoom on region ───────────────────────────────────────────────────
 
 canvas.addEventListener("click", (e) => {
-  const rect   = canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
 
@@ -168,27 +209,40 @@ canvas.addEventListener("click", (e) => {
   // Compute scale so the region fills 80% of the canvas
   const regionW = hit.x2 - hit.x1;
   const regionH = hit.y2 - hit.y1;
-  const scale   = 0.8 * Math.min(CANVAS_WIDTH / regionW, CANVAS_HEIGHT / regionH);
+  const scale = 0.8 * Math.min(CANVAS_WIDTH / regionW, CANVAS_HEIGHT / regionH);
 
   // Center of the region in data space
   const centerX = (hit.x1 + hit.x2) / 2;
   const centerY = (hit.y1 + hit.y2) / 2;
 
   // Build transform: scale around canvas center, then translate region center there
-  const tx = CANVAS_WIDTH  / 2 - scale * centerX;
+  const tx = CANVAS_WIDTH / 2 - scale * centerX;
   const ty = CANVAS_HEIGHT / 2 - scale * centerY;
 
   d3.select(canvas)
     .transition().duration(600)
     .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+
+  // --- Midwest pop-up INSIDE CANVAS ---
+  if (hit.name === "Midwest" && !window.midwestPopupShown) {
+    window.midwestPopupShown = true;
+
+    // Compute a position inside the region (10% inset)
+    const popupX = hit.x1 + (hit.x2 - hit.x1) * 0.1;
+    const popupY = hit.y1 + (hit.y2 - hit.y1) * 0.1;
+
+    // Store popup position so redraw() can render it
+    window.midwestPopup = { x: popupX, y: popupY };
+  }
 });
+
 
 // ── Hover ─────────────────────────────────────────────────────────────────────
 
 canvas.addEventListener("mousemove", (e) => {
   if (!window.currentGrid) return;
 
-  const rect   = canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
 
@@ -206,9 +260,9 @@ canvas.addEventListener("mousemove", (e) => {
     return;
   }
 
-  const value   = window.currentGrid[row][col];
+  const value = window.currentGrid[row][col];
   const ndviText = value === null ? "NDVI: —" : `NDVI: ${value.toFixed(3)}`;
-  const region   = regionAt(dataX, dataY);
+  const region = regionAt(dataX, dataY);
 
   hover.text(region ? `${region.name} — ${ndviText}` : ndviText);
 });
@@ -240,16 +294,21 @@ async function preloadAll() {
 
 function update() {
   if (!cacheReady) return;
+const ym   = months[slider.node().value];
+const grid = gridCache[ym];
+title.text(`NDVI — ${ym}`);
 
-  const ym   = months[slider.node().value];
-  const grid = gridCache[ym];
-  title.text(`NDVI — ${ym}`);
+// Skip if file missing
+if (!grid) return;
 
-  if (!grid) return;  // file was missing
+// Skip if grid is full of nulls
+const isEmpty = grid.every(row => row.every(v => v === null));
+if (isEmpty) return;
 
-  window.currentGrid = grid;
-  drawNDVI(grid);
-  redraw();
+window.currentGrid = grid;
+drawNDVI(grid);
+redraw();
+
 }
 
 slider.on("input", update);
