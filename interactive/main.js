@@ -185,13 +185,14 @@ canvas.addEventListener("click", (e) => {
 
     if (activeZoomTransition) activeZoomTransition.end();
 
-    activeZoomTransition = d3.select(canvas)
-      .transition()
-      .duration(500)
-      .call(zoom.transform, d3.zoomIdentity)
-      .on("end", () => {
-        activeZoomTransition = null;
-      });
+    if (!storyMode) {
+      activeZoomTransition = d3.select(canvas)
+        .transition()
+        .duration(600)
+        .call(zoom.transform, target);
+    } else {
+      zoom.transform(d3.select(canvas), target); // instant, safe
+    }
 
     return;
   }
@@ -321,7 +322,7 @@ async function playTimeline(regionName) {
 
     if (event) {
       showPopup(event.msg);
-      await sleep(5000);
+      await sleep(3000);
     }
     else {
       await sleep(100);   // fast scrub
