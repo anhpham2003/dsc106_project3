@@ -189,9 +189,9 @@ canvas.addEventListener("click", (e) => {
       activeZoomTransition = d3.select(canvas)
         .transition()
         .duration(600)
-        .call(zoom.transform, target);
+        .call(zoom.transform, d3.zoomIdentity);
     } else {
-      zoom.transform(d3.select(canvas), target); // instant, safe
+      zoom.transform(d3.select(canvas), d3.zoomIdentity); // instant, safe
     }
 
     return;
