@@ -3,11 +3,15 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>D3 NDVI Heatmap Viewer</title>
-
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: Arial, sans-serif;
       text-align: center;
@@ -18,12 +22,18 @@
 
     #viz-container {
       position: relative;
-      display: inline-block;
+      display: block;
+      width: 100%;
+      max-width: 1200px;
+      margin: 20px auto 0;
     }
 
+    /* The canvas fills the container width; height is set via JS to maintain aspect ratio */
     #heatmap {
+      display: block;
+      width: 100%;
+      height: auto;
       border: 2px solid #333;
-      margin-top: 20px;
     }
 
     #popup {
@@ -93,19 +103,16 @@
 
   <h1 id="title">NDVI Viewer</h1>
 
-  <!-- Canvas + Popup Overlay -->
   <div id="viz-container">
+    <!-- canvas pixel dimensions are the internal resolution (fixed); CSS makes it fluid -->
     <canvas id="heatmap" width="1200" height="900"></canvas>
-
     <div id="popup"></div>
   </div>
 
   <div id="hover">Hover NDVI: —</div>
-
   <input type="range" id="slider" min="0" max="0" value="0">
 
   <script type="module" src="./main.js?v=1"></script>
 
 </body>
-
 </html>
