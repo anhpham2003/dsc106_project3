@@ -321,10 +321,9 @@ async function playTimeline(regionName) {
     const event = isInteresting(regionName, ym);
 
     if (event) {
-      showPopup(event.msg);
+      showPopup(event.msg, regionName);  // <-- add regionName here
       await sleep(3000);
-    }
-    else {
+    } else {
       await sleep(100);   // fast scrub
     }
   }
@@ -374,10 +373,43 @@ function isInteresting(regionName, ym) {
   return rules.find(r => r.y === year && r.m === month) || null;
 }
 
-function showPopup(text) {
+function getRegionScreenRect(region) {
+  const canvasRect = canvas.getBoundingClientRect();
+  const containerRect = document.getElementById("viz-container").getBoundingClientRect();
+
+  // Transform region corners from data space → zoomed canvas space
+  const [sx1, sy1] = currentTransform.apply([region.x1, region.y1]);
+  const [sx2, sy2] = currentTransform.apply([region.x2, region.y2]);
+
+  // Offset relative to the viz-container (which #popup is positioned inside)
+  return {
+    left: sx1 + (canvasRect.left - containerRect.left),
+    top: sy1 + (canvasRect.top - containerRect.top),
+    width: sx2 - sx1,
+    height: sy2 - sy1,
+  };
+}
+
+function showPopup(text, regionName) {
+  const region = REGIONS[regionName];
+  const x1 = lonToX(region.lon_min);
+  const x2 = lonToX(region.lon_max);
+  const y1 = latToY(region.lat_max);
+  const y2 = latToY(region.lat_min);
+
+  const rect = getRegionScreenRect({ x1, x2, y1, y2 });
+
   const box = d3.select("#popup");
 
-  box.text(text)
+  // Position popup centered inside the region box
+  const popupW = Math.min(rect.width - 24, 320);
+
+  box
+    .html(`<p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#92820a;text-transform:uppercase;letter-spacing:0.06em;">📍 ${regionName}</p><p style="margin:0;">${text}</p>`)
+    .style("left", rect.left + 10 + "px")
+    .style("top", rect.top + 10 + "px")
+    .style("max-width", popupW + "px")
+    .style("transform", "none")
     .style("opacity", 1);
 
   setTimeout(() => {
