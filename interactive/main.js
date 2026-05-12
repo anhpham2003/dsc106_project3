@@ -1,5 +1,6 @@
 let storyMode = false;
 let sliderLocked = false;
+let activeZoomTransition = null;
 
 // list of months to scrub through
 const months = [];
@@ -163,6 +164,12 @@ function regionAt(dataX, dataY) {
 // ── Click-to-zoom on region ───────────────────────────────────────────────────
 
 canvas.addEventListener("click", (e) => {
+  // If a story is running, stop it immediately
+  if (storyMode) {
+    storyMode = false;
+    sliderLocked = false;
+  }
+
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
@@ -176,32 +183,40 @@ canvas.addEventListener("click", (e) => {
     storyMode = false;
     sliderLocked = false;
 
-    d3.select(canvas)
-      .transition().duration(500)
-      .call(zoom.transform, d3.zoomIdentity);
+    if (activeZoomTransition) activeZoomTransition.end();
+
+    activeZoomTransition = d3.select(canvas)
+      .transition()
+      .duration(500)
+      .call(zoom.transform, d3.zoomIdentity)
+      .on("end", () => {
+        activeZoomTransition = null;
+      });
 
     return;
   }
 
 
-  // Compute scale so the region fills 80% of the canvas
+  if (activeZoomTransition) activeZoomTransition.end();
+
+  // Compute region zoom
   const regionW = hit.x2 - hit.x1;
   const regionH = hit.y2 - hit.y1;
   const scale = 0.8 * Math.min(CANVAS_WIDTH / regionW, CANVAS_HEIGHT / regionH);
 
-  // Center of the region in data space
   const centerX = (hit.x1 + hit.x2) / 2;
   const centerY = (hit.y1 + hit.y2) / 2;
 
-  // Build transform: scale around canvas center, then translate region center there
   const tx = CANVAS_WIDTH / 2 - scale * centerX;
   const ty = CANVAS_HEIGHT / 2 - scale * centerY;
 
-  d3.select(canvas)
+  // Start new zoom transition
+  activeZoomTransition = d3.select(canvas)
     .transition()
     .duration(600)
     .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale))
     .on("end", () => {
+      activeZoomTransition = null;
       playTimeline(hit.name);
     });
 
@@ -302,10 +317,14 @@ async function playTimeline(regionName) {
     update();
 
     // If interesting → slow down
-    if (isInteresting(regionName, ym)) {
-      await sleep(3000); // pause at interesting points
-    } else {
-      await sleep(150);   // fast scrub
+    const event = isInteresting(regionName, ym);
+
+    if (event) {
+      showPopup(event.msg);
+      await sleep(5000);
+    }
+    else {
+      await sleep(100);   // fast scrub
     }
   }
 
@@ -320,41 +339,51 @@ function isInteresting(regionName, ym) {
     "Midwest": [
       // As pop-up, display a card with the following information: 
       // "The Midwest is the region that experiences the most fluctuation on avereage in a year!"
-      { y: 2014, m: 3 },   // lowest vegetation score recorded for the Midwest between 2000-2025
-      { y: 2025, m: 8 }    // The Midwest has the greatest "outlier" month, with a vegetation score of 0.376235 above the mean for this area!
+      { y: 2014, m: 3, msg: "This is the lowest vegetation score recorded for the Midwest between 2000-2025" },
+      { y: 2025, m: 8, msg: "The Midwest has the greatest outlier month, with a vegetation score of 0.376235 above the mean for this area!" }
     ],
 
     "Amazon": [
-      { y: 2024, m: 9 }   // Lowest Vegetation score recorded in the Amazon region
+      { y: 2024, m: 9, msg: "This time marks the lowest vegetation score recorded in the Amazon region" }
     ],
 
     "Western US": [
-      { y: 2008, m: 1 }   // Lowest vegetation score recorded in the Western US region
+      { y: 2008, m: 1, msg: "This month is the lowest vegetation score recorded in the Western US region" }
     ],
 
     "Central America": [
-      { y: 2024, m: 10 },   // highest vegetation score recorded for any region!
-      { y: 2009, m: 4 }   // Lowest vegetation score recorded for Central America
+      { y: 2024, m: 10, msg: "This is the highest vegetation score recorded for any region!" },
+      { y: 2009, m: 4, msg: "This is the lowest vegetation score recorded for Central America" }
     ],
 
     "Andes": [
       // As pop-up, display a card with the following information: 
       // "The Andes has the smallest fluctuation in vegetation score on average"
-      { y: 2003, m: 2 }   // lowest vegetation score recorded in the Andes
+      { y: 2003, m: 2, msg: "This is the lowest vegetation score recorded in the Andes" }
     ],
 
     "Canada/Arctic": [
-      { y: 2012, m: 12 },   // Lowest vegetation score recorded for any region throughout the past 25 years!
-      { y: 2021, m: 11 },   // Greatest increase in vegetation score recorded from a month to month period!
-      { y: 2011, m: 4 }  // Greatest decrease in vegetation score recorded from a month to month period! 
+      { y: 2012, m: 12, msg: "This is the lowest vegetation score recorded for any region throughout the past 25 years!" },
+      { y: 2021, m: 11, msg: "This month showed the greatest increase in vegetation score recorded from a month to month period!" },
+      { y: 2011, m: 4, msg: "This month showed the greatest decrease in vegetation score recorded from a month to month period! " }
     ],
   };
 
   const rules = interesting[regionName] || [];
-  return rules.some(r =>
-    (r.y === null || r.y === year) &&
-    (r.m === null || r.m === month)
-  );
+  return rules.find(r => r.y === year && r.m === month) || null;
+}
+
+function showPopup(text) {
+  const box = d3.select("#popup");
+
+  box.text(text)
+    .style("opacity", 1);
+
+  setTimeout(() => {
+    box.transition()
+      .duration(800)
+      .style("opacity", 0);
+  }, 2200);
 }
 
 slider.on("input", () => {

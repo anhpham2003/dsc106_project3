@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>D3 NDVI Heatmap Viewer</title>
@@ -15,10 +16,31 @@
       padding: 20px;
     }
 
+    #viz-container {
+      position: relative;
+      display: inline-block;
+    }
+
     #heatmap {
       border: 2px solid #333;
       margin-top: 20px;
-      /* image-rendering: pixelated; */
+    }
+
+    #popup {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 40px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      max-width: 60%;
+      text-align: center;
     }
 
     #slider {
@@ -38,7 +60,12 @@
 
   <h1 id="title">NDVI Viewer</h1>
 
-  <canvas id="heatmap" width="1200" height="900"></canvas>
+  <!-- Canvas + Popup Overlay -->
+  <div id="viz-container">
+    <canvas id="heatmap" width="1200" height="900"></canvas>
+
+    <div id="popup"></div>
+  </div>
 
   <div id="hover">Hover NDVI: —</div>
 
@@ -47,4 +74,5 @@
   <script type="module" src="./main.js?v=1"></script>
 
 </body>
+
 </html>
