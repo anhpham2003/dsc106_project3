@@ -1,3 +1,6 @@
+let storyMode = false;
+let sliderLocked = false;
+
 // list of months to scrub through
 const months = [];
 for (let y = 2000; y <= 2025; y++) {
@@ -133,36 +136,6 @@ function drawRegions() {
   ctx.font = `${12 / currentTransform.k}px Arial`;
   ctx.fillStyle = "rgba(255,255,255,0.9)";
 
-  // Draw Midwest popup if active
-  if (window.midwestPopup) {
-    const { x, y } = window.midwestPopup;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.strokeStyle = "rgba(0,0,0,0.3)";
-    ctx.lineWidth = 1 / currentTransform.k;
-
-    const text = "The Midwest has the largest vegetation fluctuation on average throughout the year!";
-    const padding = 6 / currentTransform.k;
-    const fontSize = 14 / currentTransform.k;
-
-    ctx.font = `${fontSize}px Arial`;
-
-    const textWidth = ctx.measureText(text).width;
-    const boxWidth = textWidth + padding * 2;
-    const boxHeight = fontSize + padding * 2;
-
-    // Draw box
-    ctx.fillRect(x, y, boxWidth, boxHeight);
-    ctx.strokeRect(x, y, boxWidth, boxHeight);
-
-    // Draw text
-    ctx.fillStyle = "black";
-    ctx.fillText(text, x + padding, y + fontSize + padding / 2);
-
-    ctx.restore();
-  }
-
   for (const [name, r] of Object.entries(REGIONS)) {
     const x1 = lonToX(r.lon_min);
     const x2 = lonToX(r.lon_max);
@@ -199,12 +172,17 @@ canvas.addEventListener("click", (e) => {
   const hit = regionAt(dataX, dataY);
 
   if (!hit) {
-    // Clicked outside any region → reset to full view
+    // Stop story mode immediately
+    storyMode = false;
+    sliderLocked = false;
+
     d3.select(canvas)
       .transition().duration(500)
       .call(zoom.transform, d3.zoomIdentity);
+
     return;
   }
+
 
   // Compute scale so the region fills 80% of the canvas
   const regionW = hit.x2 - hit.x1;
@@ -220,20 +198,13 @@ canvas.addEventListener("click", (e) => {
   const ty = CANVAS_HEIGHT / 2 - scale * centerY;
 
   d3.select(canvas)
-    .transition().duration(600)
-    .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+    .transition()
+    .duration(600)
+    .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale))
+    .on("end", () => {
+      playTimeline(hit.name);
+    });
 
-  // --- Midwest pop-up INSIDE CANVAS ---
-  if (hit.name === "Midwest" && !window.midwestPopupShown) {
-    window.midwestPopupShown = true;
-
-    // Compute a position inside the region (10% inset)
-    const popupX = hit.x1 + (hit.x2 - hit.x1) * 0.1;
-    const popupY = hit.y1 + (hit.y2 - hit.y1) * 0.1;
-
-    // Store popup position so redraw() can render it
-    window.midwestPopup = { x: popupX, y: popupY };
-  }
 });
 
 
@@ -294,22 +265,101 @@ async function preloadAll() {
 
 function update() {
   if (!cacheReady) return;
-const ym   = months[slider.node().value];
-const grid = gridCache[ym];
-title.text(`NDVI — ${ym}`);
+  const ym = months[slider.node().value];
+  const grid = gridCache[ym];
+  title.text(`NDVI — ${ym}`);
 
-// Skip if file missing
-if (!grid) return;
+  // Skip if file missing
+  if (!grid) return;
 
-// Skip if grid is full of nulls
-const isEmpty = grid.every(row => row.every(v => v === null));
-if (isEmpty) return;
+  // Skip if grid is full of nulls
+  const isEmpty = grid.every(row => row.every(v => v === null));
+  if (isEmpty) return;
 
-window.currentGrid = grid;
-drawNDVI(grid);
-redraw();
+  window.currentGrid = grid;
+  drawNDVI(grid);
+  redraw();
 
 }
 
-slider.on("input", update);
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function playTimeline(regionName) {
+  storyMode = true;
+  sliderLocked = true;
+
+  for (let i = 0; i < months.length; i++) {
+    if (!storyMode) break;
+
+    const ym = months[i];
+    const ymNext = months[i + 1];
+    const ymNext2 = months[i + 2];
+
+    // Always update the frame
+    slider.node().value = i;
+    update();
+
+    // If interesting → slow down
+    if (isInteresting(regionName, ym)) {
+      await sleep(3000); // pause at interesting points
+    } else {
+      await sleep(150);   // fast scrub
+    }
+  }
+
+  storyMode = false;
+  sliderLocked = false;
+}
+
+function isInteresting(regionName, ym) {
+  const [year, month] = ym.split("-").map(Number);
+
+  const interesting = {
+    "Midwest": [
+      // As pop-up, display a card with the following information: 
+      // "The Midwest is the region that experiences the most fluctuation on avereage in a year!"
+      { y: 2014, m: 3 },   // lowest vegetation score recorded for the Midwest between 2000-2025
+      { y: 2025, m: 8 }    // The Midwest has the greatest "outlier" month, with a vegetation score of 0.376235 above the mean for this area!
+    ],
+
+    "Amazon": [
+      { y: 2024, m: 9 }   // Lowest Vegetation score recorded in the Amazon region
+    ],
+
+    "Western US": [
+      { y: 2008, m: 1 }   // Lowest vegetation score recorded in the Western US region
+    ],
+
+    "Central America": [
+      { y: 2024, m: 10 },   // highest vegetation score recorded for any region!
+      { y: 2009, m: 4 }   // Lowest vegetation score recorded for Central America
+    ],
+
+    "Andes": [
+      // As pop-up, display a card with the following information: 
+      // "The Andes has the smallest fluctuation in vegetation score on average"
+      { y: 2003, m: 2 }   // lowest vegetation score recorded in the Andes
+    ],
+
+    "Canada/Arctic": [
+      { y: 2012, m: 12 },   // Lowest vegetation score recorded for any region throughout the past 25 years!
+      { y: 2021, m: 11 },   // Greatest increase in vegetation score recorded from a month to month period!
+      { y: 2011, m: 4 }  // Greatest decrease in vegetation score recorded from a month to month period! 
+    ],
+  };
+
+  const rules = interesting[regionName] || [];
+  return rules.some(r =>
+    (r.y === null || r.y === year) &&
+    (r.m === null || r.m === month)
+  );
+}
+
+slider.on("input", () => {
+  if (sliderLocked) return; // ignore user input during story mode
+  update();
+});
+
 preloadAll();
