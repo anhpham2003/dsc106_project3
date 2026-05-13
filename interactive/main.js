@@ -283,9 +283,21 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ── Region-level intro cards (shown instantly, no timeline pause) ─────────────
+
+const REGION_INFO = {
+  "Midwest": "The Midwest is the region that experiences the most fluctuation on average in a year!",
+  "Andes":   "The Andes has the smallest fluctuation in vegetation score on average.",
+};
+
 async function playTimeline(regionName) {
   storyMode    = true;
   sliderLocked = true;
+
+  // Show region-level intro card immediately — no pause, scrubbing starts right away
+  if (REGION_INFO[regionName]) {
+    showPopup(REGION_INFO[regionName], regionName, true); // true = intro style
+  }
 
   for (let i = 0; i < months.length; i++) {
     if (!storyMode) break;
@@ -295,7 +307,7 @@ async function playTimeline(regionName) {
 
     const event = isInteresting(regionName, months[i]);
     if (event) {
-      showPopup(event.msg, regionName);
+      showPopup(event.msg, regionName, false); // false = normal event style
       await sleep(3000);
     } else {
       await sleep(100);
@@ -361,7 +373,7 @@ function getRegionScreenRect(region) {
   };
 }
 
-function showPopup(text, regionName) {
+function showPopup(text, regionName, isIntro = false) {
   const region = REGIONS[regionName];
   const x1 = lonToX(region.lon_min);
   const x2 = lonToX(region.lon_max);
@@ -372,8 +384,21 @@ function showPopup(text, regionName) {
   const box    = d3.select("#popup");
   const popupW = Math.min(rect.width - 24, 320);
 
+  // Intro cards: blue accent, "ℹ️ Region overview" label, longer display time
+  // Event cards: original yellow accent, "📍 Region" label, shorter display time
+  const accentColor = isIntro ? "#1a6fa8" : "#92820a";
+  const icon        = isIntro ? "ℹ️" : "📍";
+  const label       = isIntro ? "Region overview" : regionName;
+  const displayMs   = isIntro ? 4000 : 2200;
+
   box
-    .html(`<p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#92820a;text-transform:uppercase;letter-spacing:0.06em;">📍 ${regionName}</p><p style="margin:0;">${text}</p>`)
+    .html(`
+      <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:${accentColor};
+                text-transform:uppercase;letter-spacing:0.06em;">
+        ${icon} ${label}
+      </p>
+      <p style="margin:0;">${text}</p>
+    `)
     .style("left",      rect.left + 10 + "px")
     .style("top",       rect.top  + 10 + "px")
     .style("max-width", popupW    + "px")
@@ -382,7 +407,7 @@ function showPopup(text, regionName) {
 
   setTimeout(() => {
     box.transition().duration(800).style("opacity", 0);
-  }, 2200);
+  }, displayMs);
 }
 
 // ── Slider ────────────────────────────────────────────────────────────────────

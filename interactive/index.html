@@ -8,7 +8,11 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
 
     body {
       font-family: Arial, sans-serif;
@@ -27,7 +31,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 32px;
+      padding: 48px;
       transition: opacity 0.4s ease, visibility 0.4s ease;
     }
 
@@ -37,45 +41,46 @@
     }
 
     .intro-box {
-      max-width: 480px;
+      max-width: 600px;
       width: 100%;
       text-align: left;
     }
 
     .intro-box h1 {
-      font-size: 22px;
-      margin: 0 0 12px;
+      font-size: 32px;
+      margin: 0 0 16px;
       color: #222;
     }
 
     .intro-box p {
-      font-size: 14px;
+      font-size: 18px;
       color: #444;
-      line-height: 1.6;
-      margin: 0 0 16px;
+      line-height: 1.7;
+      margin: 0 0 20px;
     }
 
     .intro-box ul {
-      font-size: 14px;
+      font-size: 18px;
       color: #444;
-      line-height: 1.7;
-      margin: 0 0 24px;
-      padding-left: 20px;
+      line-height: 1.8;
+      margin: 0 0 28px;
+      padding-left: 24px;
     }
 
     .intro-box button {
-      font-size: 14px;
-      padding: 10px 28px;
+      font-size: 18px;
+      padding: 14px 36px;
       background: #4a7a2a;
       color: #fff;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
     }
 
     .intro-box button:hover {
       background: #3a6020;
     }
+
 
     /* ── Main app ──────────────────────────────────────────────── */
     #app {
@@ -125,7 +130,8 @@
     #popup::before {
       content: "";
       position: absolute;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       border-style: solid;
       border-width: 22px 22px 0 0;
       border-color: #d4c43a transparent transparent transparent;
@@ -134,7 +140,8 @@
     #popup::after {
       content: "";
       position: absolute;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       border-style: solid;
       border-width: 20px 20px 0 0;
       border-color: #f5f5f5 transparent transparent transparent;
@@ -200,4 +207,5 @@
   <script type="module" src="./main.js?v=1"></script>
 
 </body>
+
 </html>
