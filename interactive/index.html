@@ -157,6 +157,49 @@
       font-size: 18px;
       font-weight: bold;
     }
+
+    /* ── Highlight controls ────────────────────────────────────── */
+    #highlight-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    #toggle-select {
+      font-size: 15px;
+      padding: 8px 20px;
+      background: #4a7a2a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #toggle-select:hover {
+      background: #3a6020;
+    }
+
+    #toggle-select.active {
+      background: #8b1a1a;
+    }
+
+    #toggle-select.active:hover {
+      background: #6e1414;
+    }
+
+    #ndvi-avg {
+      display: none;
+      font-size: 15px;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.72);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border-left: 3px solid #ffdc32;
+    }
   </style>
 </head>
 
@@ -179,6 +222,7 @@
         <li><strong>Drag the slider</strong> to scrub through months from 2000 to 2025.</li>
         <li><strong>Scroll to zoom</strong> and drag to pan anywhere on the map.</li>
         <li><strong>Hover over the map</strong> to see the exact NDVI value for any pixel.</li>
+        <li><strong>Click "Highlight region"</strong> then drag on the map to see the average NDVI for any area.</li>
       </ul>
       <button id="btn-enter">Get started</button>
     </div>
@@ -194,6 +238,13 @@
     </div>
 
     <div id="hover">Hover NDVI: —</div>
+
+    <!-- Highlight controls -->
+    <div id="highlight-controls">
+      <button id="toggle-select">⬚ Highlight region</button>
+      <div id="ndvi-avg"><span id="ndvi-avg-value"></span></div>
+    </div>
+
     <input type="range" id="slider" min="0" max="0" value="0">
   </div>
 
@@ -205,6 +256,80 @@
   </script>
 
   <script type="module" src="./main.js?v=1"></script>
+
+  <section id="writeup" style="max-width:900px;margin:60px auto;text-align:left;line-height:1.7;">
+    <h2>Project Write‑Up</h2>
+
+    <h3>Rationale for Design Decisions</h3>
+
+    <p>
+      We wanted to provide the user with an experience in such that they could learn something. As such, we incorporated
+      the following design choices:
+    </p>
+
+    <ul>
+      <li>
+        (Guided) Zoom: We felt that although total freedom could be fun, it could be difficult to understand what was
+        going on initially. As such, we decided to include a semi-guided user experience, where, by clicking on a
+        region,
+        the user would be brought to that specific region, and given a mini presentation of sorts, with data that we
+        found interesting.
+      </li>
+      <li>
+        Panning + Manual Timeline: However, we did not want to limit the user experience to only what we had to show
+        them.
+        Rather, we wanted the users to be able to explore the data similarly to how we did. As such, we incorporated the
+        ability to pan around the map, allowing the users to focus in on what they found interesting.
+      </li>
+      <li>
+        Hover/ Highlight: We did not want the users to be limited to visual interpretation, having to differentiate the
+        different shades purely visually. Therefore, we incorporated the idea to display the NDVI value corresponding to
+        that specific point, giving the user some more detailed information. This, however, did not generalize well when
+        analyzing an entire area, so we decided to include a region highlighter, where users could define their own
+        regions
+        and see how the NDVI values changed as time went on.
+      </li>
+    </ul>
+
+    <p>
+    <p>
+      We did not arrive at these design choices immediately. Initially, we debated creating a more strictly guided,
+      story‑like experience with dedicated pause and play controls. Ultimately, we chose the current approach because
+      we believed it created a better balance between structured guidance and open‑ended exploration, allowing users
+      to follow a narrative when they want to, while still having control over how they want to investigate the data.
+    </p>
+
+    </p>
+
+    <h3>Development Process</h3>
+    <p>
+      The project required approximately 16-20 of development time. Some of the most time consuming aspects were:
+    </p>
+    <ul>
+      <li>
+        Exploratory Analysis: Deciding what events we would consider to be included within our guided timeline.
+      </li>
+      <li>
+        Implementing a zoom system that remained consistent across CSS scaling.
+      </li>
+      <li>
+        Ensuring that the event triggering logic would terminate when you clicked off the region/ would not
+        duplicate or break the auto-scrolling when clicking directly from one region to another.
+      </li>
+      <li>
+        Preloading and caching 300+ monthly NDVI grids efficiently.
+      </li>
+    </ul>
+
+    <p>
+      Work was divided on a case-by-case basis, as our schedules did not always match up to work in together in real
+      time. We coordinated our work primarily through a group chat; This made it easy to discuss ideas, ask questions, 
+      and hand off tasks when someone else was available to continue. We also gave updates through GitHub, using commit 
+      messages and shared documentation to keep track of progress. Through this, we were able to stay aligned even when 
+      working asynchronously.    
+    </p>
+  </section>
+
 
 </body>
 

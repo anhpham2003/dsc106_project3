@@ -2,12 +2,9 @@ let storyMode = false;
 let sliderLocked = false;
 let activeZoomTransition = null;
 
-// Track last known mouse position (CSS pixels)
 window.lastMouseX = null;
 window.lastMouseY = null;
 
-
-// list of months to scrub through
 const months = [];
 for (let y = 2000; y <= 2025; y++) {
   for (let m = 1; m <= 12; m++) {
@@ -17,7 +14,6 @@ for (let y = 2000; y <= 2025; y++) {
   }
 }
 
-// DOM elements
 const slider = d3.select("#slider");
 slider.attr("max", months.length - 1);
 
@@ -27,16 +23,9 @@ const hover  = d3.select("#hover");
 const canvas = d3.select("#heatmap").node();
 const ctx    = canvas.getContext("2d");
 
-// ── Internal (pixel) resolution – never changes ───────────────────────────────
-// We always draw into this fixed pixel grid; the CSS `width:100%` on the canvas
-// element makes the browser scale it visually without altering pixel math.
-const CANVAS_WIDTH  = canvas.width;   // 1200
-const CANVAS_HEIGHT = canvas.height;  // 900
+const CANVAS_WIDTH  = canvas.width;
+const CANVAS_HEIGHT = canvas.height;
 
-// ── CSS-pixel scale factor ────────────────────────────────────────────────────
-// The canvas is rendered as a CSS-fluid element. Mouse events arrive in CSS
-// pixels, so we need to convert them to internal canvas pixels before doing
-// any coordinate math. We read this from the canvas's current bounding rect.
 function cssToCanvas(cssX, cssY) {
   const rect   = canvas.getBoundingClientRect();
   const scaleX = CANVAS_WIDTH  / rect.width;
@@ -44,20 +33,23 @@ function cssToCanvas(cssX, cssY) {
   return [cssX * scaleX, cssY * scaleY];
 }
 
-// ── Zoom state ────────────────────────────────────────────────────────────────
+// ── Zoom ──────────────────────────────────────────────────────────────────────
+
 let currentTransform = d3.zoomIdentity;
 
 const zoom = d3.zoom()
   .scaleExtent([1, 20])
+  .filter((event) => {
+    // Disable all zoom/pan interaction while in selection mode
+    if (selectionMode) return false;
+    // Default D3 zoom filter: allow wheel zoom, ignore right-click
+    return (!event.ctrlKey || event.type === 'wheel') && !event.button;
+  })
   .on("zoom", (event) => {
     currentTransform = event.transform;
     redraw();
   });
 
-// Apply zoom to the canvas element. D3's zoom uses clientX/Y internally and
-// maps them through the element's bounding rect, which works correctly whether
-// the canvas is 1200 px wide or 400 px wide – BUT we must also account for the
-// pixel-ratio mismatch when translating into data space (see canvasToData).
 d3.select(canvas).call(zoom);
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -70,8 +62,6 @@ function latToY(lat) {
   return (75 - lat) / 135 * CANVAS_HEIGHT;
 }
 
-// Convert a CSS-pixel mouse position → internal data-space point,
-// accounting for both the CSS→canvas scale and the current zoom transform.
 function canvasToData(cssX, cssY) {
   const [px, py] = cssToCanvas(cssX, cssY);
   return currentTransform.invert([px, py]);
@@ -111,9 +101,44 @@ function drawNDVI(grid) {
   offCtx.drawImage(offscreen, 0, 0, cols, rows, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 }
 
+// ── Highlight / selection state ───────────────────────────────────────────────
+
+let selectionMode = false;
+let isDrawing     = false;
+let selStartPx    = null;  // { x, y } in internal canvas pixels
+let selCurPx      = null;  // { x, y } in internal canvas pixels — live drag end
+let selDataRect   = null;  // { x1, y1, x2, y2 } in data space — committed on mouseup
+
+// drawSelection draws the dashed box in SCREEN space.
+// It runs after ctx.restore() so the zoom transform is no longer active,
+// meaning we can draw directly in internal-pixel screen coordinates.
+function drawSelection() {
+  if (!selStartPx || !selCurPx) return;
+
+  // Convert the two drag corners from internal-px data space → zoomed screen px
+  const [sx1, sy1] = currentTransform.apply([selStartPx.x, selStartPx.y]);
+  const [sx2, sy2] = currentTransform.apply([selCurPx.x,   selCurPx.y]);
+
+  const x = Math.min(sx1, sx2);
+  const y = Math.min(sy1, sy2);
+  const w = Math.abs(sx2 - sx1);
+  const h = Math.abs(sy2 - sy1);
+
+  ctx.save();
+  ctx.setLineDash([6, 3]);
+  ctx.strokeStyle = "rgba(255, 220, 50, 0.95)";
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = "rgba(255, 220, 50, 0.08)";
+  ctx.fillRect(x, y, w, h);
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 function redraw() {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+  // Zoomed layer: heatmap + region boxes
   ctx.save();
   ctx.setTransform(
     currentTransform.k, 0,
@@ -123,6 +148,9 @@ function redraw() {
   ctx.drawImage(offscreen, 0, 0);
   drawRegions();
   ctx.restore();
+
+  // Screen-space overlay: selection rectangle (no transform active here)
+  drawSelection();
 }
 
 // ── Regions ───────────────────────────────────────────────────────────────────
@@ -165,9 +193,127 @@ function regionAt(dataX, dataY) {
   return null;
 }
 
+// ── Highlight mouse events ────────────────────────────────────────────────────
+// We store drag points in DATA space (unzoomed internal pixels) so the box
+// stays anchored correctly if the user zooms/pans after drawing.
+
+canvas.addEventListener("mousedown", (e) => {
+  if (!selectionMode) return;
+  e.stopPropagation();   // prevent D3 zoom from stealing the drag
+
+  const rect = canvas.getBoundingClientRect();
+  const cssX = e.clientX - rect.left;
+  const cssY = e.clientY - rect.top;
+
+  // Convert CSS px → data space
+  const [dx, dy] = canvasToData(cssX, cssY);
+  selStartPx = { x: dx, y: dy };
+  selCurPx   = { x: dx, y: dy };
+  isDrawing  = true;
+
+  selDataRect = null;
+  document.getElementById("ndvi-avg").style.display = "none";
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  if (!selectionMode || !isDrawing) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const cssX = e.clientX - rect.left;
+  const cssY = e.clientY - rect.top;
+
+  const [dx, dy] = canvasToData(cssX, cssY);
+  selCurPx = { x: dx, y: dy };
+
+  redraw();
+});
+
+canvas.addEventListener("mouseup", (e) => {
+  if (!selectionMode || !isDrawing) return;
+  isDrawing = false;
+
+  if (!selStartPx || !selCurPx) return;
+
+  const minSize = 4 / currentTransform.k;  // minimum drag size in data px
+  if (Math.abs(selCurPx.x - selStartPx.x) < minSize ||
+      Math.abs(selCurPx.y - selStartPx.y) < minSize) {
+    selStartPx = null;
+    selCurPx   = null;
+    redraw();
+    return;
+  }
+
+  selDataRect = {
+    x1: Math.min(selStartPx.x, selCurPx.x),
+    y1: Math.min(selStartPx.y, selCurPx.y),
+    x2: Math.max(selStartPx.x, selCurPx.x),
+    y2: Math.max(selStartPx.y, selCurPx.y),
+  };
+
+  computeAndShowAverage();
+  redraw();
+});
+
+// ── Average NDVI computation ──────────────────────────────────────────────────
+
+function computeAndShowAverage() {
+  if (!window.currentGrid || !selDataRect) return;
+
+  const grid = window.currentGrid;
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  const c1 = Math.max(0,    Math.floor(selDataRect.x1 * cols / CANVAS_WIDTH));
+  const c2 = Math.min(cols, Math.ceil( selDataRect.x2 * cols / CANVAS_WIDTH));
+  const r1 = Math.max(0,    Math.floor(selDataRect.y1 * rows / CANVAS_HEIGHT));
+  const r2 = Math.min(rows, Math.ceil( selDataRect.y2 * rows / CANVAS_HEIGHT));
+
+  let sum = 0, count = 0;
+  for (let r = r1; r < r2; r++) {
+    for (let c = c1; c < c2; c++) {
+      const v = grid[r][c];
+      if (v !== null) { sum += v; count++; }
+    }
+  }
+
+  const avgEl = document.getElementById("ndvi-avg");
+  const valEl = document.getElementById("ndvi-avg-value");
+
+  if (count === 0) {
+    valEl.textContent = "No data in selection";
+  } else {
+    const avg = sum / count;
+    valEl.textContent = `Avg NDVI: ${avg.toFixed(4)}  (${count.toLocaleString()} cells)`;
+  }
+
+  avgEl.style.display = "block";
+}
+
+// ── Toggle button ─────────────────────────────────────────────────────────────
+
+document.getElementById("toggle-select").addEventListener("click", () => {
+  selectionMode = !selectionMode;
+
+  const btn = document.getElementById("toggle-select");
+  btn.textContent = selectionMode ? "✕ Cancel selection" : "⬚ Highlight region";
+  btn.classList.toggle("active", selectionMode);
+
+  canvas.style.cursor = selectionMode ? "crosshair" : "default";
+
+  if (!selectionMode) {
+    selStartPx  = null;
+    selCurPx    = null;
+    selDataRect = null;
+    document.getElementById("ndvi-avg").style.display = "none";
+    redraw();
+  }
+});
+
 // ── Click-to-zoom ─────────────────────────────────────────────────────────────
 
 canvas.addEventListener("click", (e) => {
+  if (selectionMode) return;  // don't zoom while in selection mode
+
   if (storyMode) {
     storyMode    = false;
     sliderLocked = false;
@@ -219,14 +365,14 @@ canvas.addEventListener("click", (e) => {
 canvas.addEventListener("mousemove", (e) => {
   window.lastMouseX = e.clientX;
   window.lastMouseY = e.clientY;
-  updateHoverFromMouse();
+  if (!isDrawing) updateHoverFromMouse();
 });
 
 function updateHoverFromMouse() {
   if (!window.currentGrid) return;
   if (window.lastMouseX === null || window.lastMouseY === null) return;
 
-  const rect = canvas.getBoundingClientRect();
+  const rect   = canvas.getBoundingClientRect();
   const mouseX = window.lastMouseX - rect.left;
   const mouseY = window.lastMouseY - rect.top;
 
@@ -249,7 +395,6 @@ function updateHoverFromMouse() {
 
   hover.text(region ? `${region.name} — ${ndviText}` : ndviText);
 }
-
 
 // ── Preload ───────────────────────────────────────────────────────────────────
 
@@ -291,16 +436,17 @@ function update() {
   drawNDVI(grid);
   redraw();
 
-  // NEW: update hover even when mouse is still
   updateHoverFromMouse();
-}
 
+  // Refresh the average readout if a selection is active
+  if (selDataRect) computeAndShowAverage();
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── Region-level intro cards (shown instantly, no timeline pause) ─────────────
+// ── Region intro cards ────────────────────────────────────────────────────────
 
 const REGION_INFO = {
   "Midwest": "The Midwest is the region that experiences the most fluctuation on average in a year!",
@@ -311,9 +457,8 @@ async function playTimeline(regionName) {
   storyMode    = true;
   sliderLocked = true;
 
-  // Show region-level intro card immediately — no pause, scrubbing starts right away
   if (REGION_INFO[regionName]) {
-    showPopup(REGION_INFO[regionName], regionName, true); // true = intro style
+    showPopup(REGION_INFO[regionName], regionName, true);
   }
 
   for (let i = 0; i < months.length; i++) {
@@ -324,7 +469,7 @@ async function playTimeline(regionName) {
 
     const event = isInteresting(regionName, months[i]);
     if (event) {
-      showPopup(event.msg, regionName, false); // false = normal event style
+      showPopup(event.msg, regionName, false);
       await sleep(3000);
     } else {
       await sleep(100);
@@ -373,15 +518,12 @@ function getRegionScreenRect(region) {
   const canvasRect    = canvas.getBoundingClientRect();
   const containerRect = document.getElementById("viz-container").getBoundingClientRect();
 
-  // Scale CSS pixels → internal canvas pixels before applying zoom transform
   const scaleX = CANVAS_WIDTH  / canvasRect.width;
   const scaleY = CANVAS_HEIGHT / canvasRect.height;
 
-  // Transform from internal pixel space → zoomed internal pixel space
   const [sx1, sy1] = currentTransform.apply([region.x1, region.y1]);
   const [sx2, sy2] = currentTransform.apply([region.x2, region.y2]);
 
-  // Convert back to CSS pixels for DOM positioning
   return {
     left:   sx1 / scaleX + (canvasRect.left - containerRect.left),
     top:    sy1 / scaleY + (canvasRect.top  - containerRect.top),
@@ -401,8 +543,6 @@ function showPopup(text, regionName, isIntro = false) {
   const box    = d3.select("#popup");
   const popupW = Math.min(rect.width - 24, 320);
 
-  // Intro cards: blue accent, "ℹ️ Region overview" label, longer display time
-  // Event cards: original yellow accent, "📍 Region" label, shorter display time
   const accentColor = isIntro ? "#1a6fa8" : "#92820a";
   const icon        = isIntro ? "ℹ️" : "📍";
   const label       = isIntro ? "Region overview" : regionName;
@@ -434,15 +574,9 @@ slider.on("input", () => {
   update();
 });
 
-// ── Responsive: redraw on container resize ────────────────────────────────────
-// The canvas *pixel* dimensions stay fixed (1200×900). The CSS makes it fluid.
-// We only need to redraw so the zoom overlay stays crisp; no coordinate
-// recalculation is required because all math is in internal pixel space.
-const resizeObserver = new ResizeObserver(() => {
-  // Reapply the current zoom transform identity so D3 recalculates its
-  // internal viewport correctly, then redraw.
-  redraw();
-});
+// ── Resize observer ───────────────────────────────────────────────────────────
+
+const resizeObserver = new ResizeObserver(() => { redraw(); });
 resizeObserver.observe(document.getElementById("viz-container"));
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
