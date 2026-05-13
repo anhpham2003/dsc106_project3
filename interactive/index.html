@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>D3 NDVI Heatmap Viewer</title>
+  <title>Greening and Browning of the Americas</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
   <style>
@@ -94,6 +94,53 @@
       pointer-events: auto;
     }
 
+    #project-header {
+      max-width: 1000px;
+      margin: 0 auto 24px;
+      text-align: center;
+      color: #222;
+    }
+
+    #project-header h1 {
+      font-size: 48px;
+      margin: 0 0 8px;
+      line-height: 1.15;
+    }
+
+    #project-header h2 {
+      font-size: 26px;
+      font-weight: 500;
+      color: #4a7a2a;
+      margin: 0 0 18px;
+      line-height: 1.3;
+    }
+
+    #project-header p {
+      margin: 8px 0;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #444;
+    }
+
+    #project-header .team-members {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 10px 0 14px;
+    }
+
+    #project-header .team-members span {
+      display: inline-block;
+      padding: 5px 10px;
+      background: #e8f1df;
+      color: #2f5519;
+      border: 1px solid #c9ddb6;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
     #viz-container {
       position: relative;
       display: block;
@@ -158,6 +205,33 @@
       font-weight: bold;
     }
 
+    #view-controls {
+      display: flex;
+      justify-content: center;
+      margin: 12px 0 16px;
+    }
+
+    #toggle-compare {
+      font-size: 15px;
+      padding: 9px 22px;
+      background: #2f5f8f;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #toggle-compare:hover {
+      background: #24496f;
+    }
+
+    #app.compare-mode #viz-container,
+    #app.compare-mode #hover,
+    #app.compare-mode #main-region-list,
+    #app.compare-mode #highlight-controls {
+      display: none;
+    }
+
     /* ── Highlight controls ────────────────────────────────────── */
     #highlight-controls {
       display: flex;
@@ -200,6 +274,138 @@
       border-radius: 6px;
       border-left: 3px solid #ffdc32;
     }
+
+    /* ── Compare view ─────────────────────────────────────────── */
+    #compare-section {
+      display: none;
+      max-width: 1200px;
+      margin: 34px auto 0;
+      padding: 22px;
+      background: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      text-align: left;
+    }
+
+    #app.compare-mode #compare-section {
+      display: block;
+    }
+
+    #compare-section h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      color: #222;
+      text-align: center;
+    }
+
+    #compare-section p {
+      margin: 0 auto 18px;
+      max-width: 760px;
+      color: #555;
+      font-size: 15px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .compare-controls {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .compare-controls label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .compare-controls select {
+      padding: 7px 10px;
+      border: 1px solid #bbb;
+      border-radius: 5px;
+      background: #fff;
+      font-size: 15px;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .compare-panel h3 {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 17px;
+      color: #333;
+    }
+
+    .compare-panel canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 2px solid #333;
+      background: #ddd;
+    }
+
+    .compare-hover {
+      margin: 8px 0 10px;
+      min-height: 20px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .region-summary-list,
+    .compare-region-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+      margin: 0;
+      padding: 12px;
+      list-style: none;
+      background: #f6f6f6;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    #main-region-list {
+      max-width: 760px;
+      margin: 10px auto 0;
+      font-size: 15px;
+    }
+
+    .region-summary-list li,
+    .compare-region-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #333;
+    }
+
+    .region-summary-list .region-name,
+    .compare-region-list .region-name {
+      font-weight: 600;
+    }
+
+    .region-summary-list .region-value,
+    .compare-region-list .region-value {
+      font-variant-numeric: tabular-nums;
+      color: #4a7a2a;
+    }
+
+    @media (max-width: 800px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -221,8 +427,8 @@
         <li><strong>Click the background</strong> to zoom back out.</li>
         <li><strong>Drag the slider</strong> to scrub through months from 2000 to 2025.</li>
         <li><strong>Scroll to zoom</strong> and drag to pan anywhere on the map.</li>
-        <li><strong>Hover over the map</strong> to see the exact NDVI value for any pixel.</li>
-        <li><strong>Click "Highlight region"</strong> then drag on the map to see the average NDVI for any area.</li>
+        <li><strong>Hover over the map</strong> to see the vegetation proxy value for any pixel.</li>
+        <li><strong>Click "Highlight region"</strong> then drag on the map to see the average vegetation proxy for any area.</li>
       </ul>
       <button id="btn-enter">Get started</button>
     </div>
@@ -230,14 +436,35 @@
 
   <!-- Main app -->
   <div id="app">
+    <header id="project-header">
+      <h1>Greening and Browning of the Americas</h1>
+      <p><strong>Project 3</strong></p>
+      <div class="team-members" aria-label="Team members">
+        <span>Jared Wang</span>
+        <span>Hoang Pham</span>
+        <span>Shaun Israni</span>
+      </div>
+      <p>
+        This project explores long-term vegetation change across North and South America using MODIS-derived
+        vegetation data. Our goal is to help viewers compare greening and browning patterns over time through an
+        interactive map, timeline, region highlights, and guided annotations. The main question we investigate is:
+        where in the Americas have vegetation patterns changed the most over time?
+      </p>
+    </header>
+
     <h1 id="title">NDVI Viewer</h1>
+
+    <div id="view-controls">
+      <button id="toggle-compare">Compare Two Different Times</button>
+    </div>
 
     <div id="viz-container">
       <canvas id="heatmap" width="1200" height="900"></canvas>
       <div id="popup"></div>
     </div>
 
-    <div id="hover">Hover NDVI: —</div>
+    <div id="hover">Hover vegetation proxy: —</div>
+    <ul id="main-region-list" class="region-summary-list"></ul>
 
     <!-- Highlight controls -->
     <div id="highlight-controls">
@@ -246,6 +473,34 @@
     </div>
 
     <input type="range" id="slider" min="0" max="0" value="0">
+
+    <section id="compare-section">
+      <h2>Compare Two Different Times</h2>
+      <p>
+        The left map follows the main timeline slider above. Select one comparison month for the right map to compare
+        vegetation patterns across two different times.
+      </p>
+      <div class="compare-controls">
+        <label for="compare-right-select">
+          Comparison time
+          <select id="compare-right-select"></select>
+        </label>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-panel">
+          <h3 id="compare-left-title">Slider time</h3>
+          <canvas id="compare-left" width="560" height="540"></canvas>
+          <div id="compare-left-hover" class="compare-hover">Hover vegetation proxy: —</div>
+          <ul id="compare-left-regions" class="compare-region-list"></ul>
+        </div>
+        <div class="compare-panel">
+          <h3 id="compare-right-title">Later time</h3>
+          <canvas id="compare-right" width="560" height="540"></canvas>
+          <div id="compare-right-hover" class="compare-hover">Hover vegetation proxy: —</div>
+          <ul id="compare-right-regions" class="compare-region-list"></ul>
+        </div>
+      </div>
+    </section>
   </div>
 
   <script>
@@ -288,6 +543,10 @@
         analyzing an entire area, so we decided to include a region highlighter, where users could define their own
         regions
         and see how the NDVI values changed as time went on.
+      </li>
+      <li>
+        Compare Mode: We also added a side-by-side comparison view so users could compare two different times without
+        interrupting the main map's click-to-zoom story interaction.
       </li>
     </ul>
 
