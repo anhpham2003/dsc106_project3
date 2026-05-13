@@ -2,6 +2,11 @@ let storyMode = false;
 let sliderLocked = false;
 let activeZoomTransition = null;
 
+// Track last known mouse position (CSS pixels)
+window.lastMouseX = null;
+window.lastMouseY = null;
+
+
 // list of months to scrub through
 const months = [];
 for (let y = 2000; y <= 2025; y++) {
@@ -212,11 +217,18 @@ canvas.addEventListener("click", (e) => {
 // ── Hover ─────────────────────────────────────────────────────────────────────
 
 canvas.addEventListener("mousemove", (e) => {
-  if (!window.currentGrid) return;
+  window.lastMouseX = e.clientX;
+  window.lastMouseY = e.clientY;
+  updateHoverFromMouse();
+});
 
-  const rect   = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
+function updateHoverFromMouse() {
+  if (!window.currentGrid) return;
+  if (window.lastMouseX === null || window.lastMouseY === null) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = window.lastMouseX - rect.left;
+  const mouseY = window.lastMouseY - rect.top;
 
   const [dataX, dataY] = canvasToData(mouseX, mouseY);
 
@@ -236,7 +248,8 @@ canvas.addEventListener("mousemove", (e) => {
   const region   = regionAt(dataX, dataY);
 
   hover.text(region ? `${region.name} — ${ndviText}` : ndviText);
-});
+}
+
 
 // ── Preload ───────────────────────────────────────────────────────────────────
 
@@ -277,7 +290,11 @@ function update() {
   window.currentGrid = grid;
   drawNDVI(grid);
   redraw();
+
+  // NEW: update hover even when mouse is still
+  updateHoverFromMouse();
 }
+
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
